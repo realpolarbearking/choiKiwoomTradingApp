@@ -19,7 +19,16 @@ class Kiwoom(QAxWidget):
         self.account_number = self.get_account_number()
 
         self.tr_event_loop = QEventLoop()
-        self.conditionLoop = None
+        self.conditionLoop = None #QEventLoop()
+
+        # for Telegram
+        self.conditions = ''
+        self.token = TELEGRAM_TOKEN
+        self.bot = telegram.Bot(self.token)
+        self.updater = Updater(token=self.token, use_context=True)
+        self.dispatcher = self.updater.dispatcher
+        self.chatID = ''
+        self.sendMessage()
 
         self.GetConditionLoad()
 
@@ -30,14 +39,7 @@ class Kiwoom(QAxWidget):
         self.filteredCodes = ''
         self.realfilteredCodes = ''
 
-        # for Telegram
-        self.conditions = ""
-        self.token = TELEGRAM_TOKEN
-        self.bot = telegram.Bot(self.token)
-        self.updater = Updater(token=self.token, use_context=True)
-        self.dispatcher = self.updater.dispatcher
-        self.chatID = ''
-        self.sendMessage()
+        self.updater.start_polling()
 
     def _make_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -409,9 +411,11 @@ class Kiwoom(QAxWidget):
         print("[sendCondition]")
         isRequest = self.dynamicCall("SendCondition(QString, QString, int, int",
                                      screenNo, conditionName, conditionIndex, isRealTime)
+        print("isRequest: " + str(isRequest))
         if not isRequest:
             print("sendCondition(): Failed to search condition(s)")
 
+        print("Loop Enter at [sendCondition]" + ": " + str(conditionIndex))
         self.conditionLoop = QEventLoop()
         self.conditionLoop.exec_()
 
@@ -421,9 +425,6 @@ class Kiwoom(QAxWidget):
 
         msg = "STOP_CONDITION: {} \n".format(conditionName)
         self.bot.sendMessage(chat_id=self.chatID, text=msg)
-
-        self.conditionLoop = QEventLoop()
-        self.conditionLoop.exec_()
 
     def _on_receive_condition_ver(self, receive):
 
@@ -439,10 +440,12 @@ class Kiwoom(QAxWidget):
                 print("Condition: ", key, ": ", self.condition[key])
                 # print("key type: ", type(key))
 
-            self.conditionLoop.exit()
-
         except Exception as e:
             print(e)
+
+        finally:
+            print("Loop exit at [receiveConditionVer]")
+            self.conditionLoop.exit()
 
     def _on_receive_tr_condition(self, screenNo, codes, conditionName, conditionIndex, inquiry):
         """
@@ -467,10 +470,12 @@ class Kiwoom(QAxWidget):
             print(self.filteredCodes)
             self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.filteredCodes)
 
-            self.conditionLoop.exit()
-
         except Exception as e:
             print(e)
+
+        finally:
+            print("Loop exit at [receiveTrCondition]")
+            self.conditionLoop.exit()
 
     def _on_receive_real_condition(self, code, event, conditionName, conditionIndex):
         print("[receiveRealCondition]")
@@ -491,7 +496,7 @@ class Kiwoom(QAxWidget):
         self.dispatcher.add_handler(conditionStartHandler)
         conditionStopHandler = CommandHandler('stop', self.stopCondition)
         self.dispatcher.add_handler(conditionStopHandler)
-        self.updater.start_polling()
+        #self.updater.start_polling()
 
     def start(self, update, context):
         self.chatID = update.effective_chat.id

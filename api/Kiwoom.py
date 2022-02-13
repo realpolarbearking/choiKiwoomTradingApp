@@ -1,8 +1,13 @@
 from PyQt5.QAxContainer import *
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from util.const import *
 import time
 import pandas as pd
+from util.const import *
+import telegram
+from telegram.ext import Updater
+from telegram.ext import CommandHandler
+from telegram.ext import MessageHandler, Filters
 
 class Kiwoom(QAxWidget):
 
@@ -11,22 +16,28 @@ class Kiwoom(QAxWidget):
         self._make_kiwoom_instance()
         self._set_signal_slots()
         self._comm_connect()
-
         self.account_number = self.get_account_number()
 
         self.tr_event_loop = QEventLoop()
+        self.conditionLoop = None
 
         self.GetConditionLoad()
 
+        self.condition = {}
         self.order = {}
         self.balance = {}
         self.universe_realtime_transaction_info = {}
-        self.filteredCode = []
-        self.filteredCodeS = []
-        self.conditionname = ""
-        self.nindex = ""
-        self.sellconditionname = ""
-        self.sellnindex = ""
+        self.filteredCodes = ''
+        self.realfilteredCodes = ''
+
+        # for Telegram
+        self.conditions = ""
+        self.token = TELEGRAM_TOKEN
+        self.bot = telegram.Bot(self.token)
+        self.updater = Updater(token=self.token, use_context=True)
+        self.dispatcher = self.updater.dispatcher
+        self.chatID = ''
+        self.sendMessage()
 
     def _make_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -72,11 +83,6 @@ class Kiwoom(QAxWidget):
         account_number = account_list.split(';')[0]
         print(account_number, account_list)
         return account_number
-
-    def get_code_list_by_market(self, market_type):
-        code_list = self.dynamicCall("GetCodeListByMarket(QString)", market_type)
-        code_list = code_list.split(';')[:-1]
-        return code_list
 
     def get_master_code_name(self, code):
         code_name = self.dynamicCall("GetMasterCodeName(QString)", code)
@@ -154,6 +160,7 @@ class Kiwoom(QAxWidget):
                 ordered_at = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "시간")
                 fee = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매수수료")
                 tax = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매세금")
+                #bors = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "매도수구분")
 
                 # 데이터 형변환 및 가공
                 code = code.strip()
@@ -170,6 +177,7 @@ class Kiwoom(QAxWidget):
                 ordered_at = ordered_at.strip()
                 fee = int(fee)
                 tax = int(tax)
+                #bors = int(bors)
 
                 # code를 key값으로 한 딕셔너리 변환
                 self.order[code] = {
@@ -186,6 +194,7 @@ class Kiwoom(QAxWidget):
                     '주문시간': ordered_at,
                     '당일매매수수료': fee,
                     '당일매매세금': tax
+                    #'매도수구분': bors
                 }
 
             self.tr_data = self.order
@@ -363,6 +372,7 @@ class Kiwoom(QAxWidget):
 
     def GetConditionLoad(self):
         result = self.dynamicCall("GetConditionLoad()")
+        print("[getConditionLoad]")
         print(result)
 
         if result == 1:
@@ -370,89 +380,121 @@ class Kiwoom(QAxWidget):
         elif result != 1:
             print("*RULE(S): FAILED TO IMPORT*")
 
-    def _on_receive_condition_ver(self):
-        condition_list = {'index': [], 'name': []}
+    def getConditionNameList(self):
+        self.condition_list = {'index': [], 'name': []}
         temporary_condition_list = self.dynamicCall("GetConditionNameList()").split(";")
+        if temporary_condition_list == "":
+            print("getConditionNameList(): EMPTY.")
         temporary_condition_list.remove('')
-        print(temporary_condition_list)
 
+        msg = ""
         for data in temporary_condition_list:
             try:
                 a = data.split("^")
-                condition_list['index'].append(str(a[0]))
-                condition_list['name'].append(str(a[1]))
+                self.condition_list['index'].append(str(a[0]))
+                self.condition_list['name'].append(str(a[1]))
+                msg = "{}: {}\n".format(str(a[0]), str(a[1]))
             except IndexError:
                 print("*INDEX_ERROR*")
                 pass
+            self.conditions += str(msg)
+        print(self.conditions)
 
-        self.conditionname = str(condition_list['name'][3])
-        self.nindex = str(condition_list['index'][3])
-        print("BUY_CONDITION_LIST: " + str(condition_list))
-        print("BUY_RULE_INDEX: " + str(self.nindex))
-        print("BUY_RULE_NAME: " + str(self.conditionname))
+        return self.condition_list
 
-        self.sellconditionname = str(condition_list['name'][4])
-        self.sellnindex = str(condition_list['index'][4])
-        print("SELL_RULE_INDEX: " + str(self.sellnindex))
-        print("SELL_RULE_NAME: " + str(self.sellconditionname))
+    def sendCondition(self, screenNo, conditionName, conditionIndex, isRealTime):
+        print("[sendCondition]")
+        isRequest = self.dynamicCall("SendCondition(QString, QString, int, int",
+                                     screenNo, conditionName, conditionIndex, isRealTime)
+        if not isRequest:
+            print("sendCondition(): Failed to search condition(s)")
 
-        a = self.dynamicCall("SendCondition(QString, QString, int, int)", "0156", str(self.conditionname), self.nindex, 1)
-        b = self.dynamicCall("SendCondition(QString, QString, int, int)", "0156", str(self.sellconditionname), self.sellnindex, 1)
-        if a == 1:
-            print("*BUY:FILTERING_CONDITION_SENT*")
-        elif a != 1:
-            print("*BUY:FILTERING_CONDITION_TRANSMISSION_FAILED*")
-        if b == 1:
-            print("*SELL:FILTERING_CONDITION_SENT*")
-        elif b != 1:
-            print("*SELL:FILTERING_CONDITION_TRANSMISSION_FAILED*")
+    def sendConditionStop(self, screenNo, conditionName, conditionIndex):
+        print("[sendConditionStop]")
+        self.dynamicCall("SendConditionStop(QString, QString, int)", screenNo, conditionName, conditionIndex)
 
-    def _on_receive_tr_condition(self, sScrNo, strCodeList, strConditionName, nindex, nNext):
+        msg = "STOP_CONDITION: {} \n".format(conditionName)
+        self.bot.sendMessage(chat_id=self.chatID, text=msg)
+
+    def _on_receive_condition_ver(self, receive):
+
+        print("[receiveConditionVer]")
+        try:
+            if not receive:
+                return
+
+            self.condition = self.getConditionNameList()
+            print("Condition #: ", len(self.condition['index']))
+
+            for key in self.condition.keys():
+                print("Condition: ", key, ": ", self.condition[key])
+                # print("key type: ", type(key))
+
+        except Exception as e:
+            print(e)
+
+    def _on_receive_tr_condition(self, screenNo, codes, conditionName, conditionIndex, inquiry):
         """
         print("receive_tr_condition sScrNo: " + str(sScrNo) + ", strCodeList: " + str(
             strCodeList) + ", strConditionName: " + str(strConditionName) + ", nIndex: " + str(
             nindex) + ", nNext: " + str(nNext))
         """
-        if strConditionName == self.conditionname:
-            self.filteredCode.append(strCodeList)
-            self.filteredCode = self.filteredCode[0].split(';')
-            self.filteredCode.remove('')
-            print("FILTERED_BUY_CONDITION: " + str(self.filteredCode))
-        if strConditionName == self.sellconditionname:
-            self.filteredCodeS.append(strCodeList)
-            self.filteredCodeS = self.filteredCodeS[0].split(';')
-            self.filteredCodeS.remove('')
-            print("FILTERED_SELL_CONDITION: " + str(self.filteredCodeS))
+        print("[receiveTrCondition]")
+        try:
+            if codes == "":
+                self.filteredCodes = "None Found"
+                return
 
-    def _on_receive_real_condition(self, strCode, strType, strConditionName, strConditionIndex):
-        print("receive_real_condition strCode: " + str(strCode) + ", strType: " + str(
-            strType) + ", strConditionName: " + str(strConditionName) + ", strConditionIndex: " + str(
-            strConditionIndex))
+            codeList = codes.split(';')
+            codeList.remove('')
 
-        #logDateTime = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        strCodeName = self.dynamicCall("GetMasterCodeName(QString)", [strCode]).strip()
+            msg = ""
+            for code in codeList:
+                msg = "{} {}\n".format(code, self.get_master_code_name(code))
+            self.filteredCodes += msg
+            print(conditionName + "(" + str(len(codeList)) + ")")
+            print(self.filteredCodes)
+            self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.filteredCodes)
 
-        if str(strType) == "I":  # 편입 종목이라면
-            if strConditionName == self.conditionname:
-                self.filteredCode.append(strCode)
-                print(str(strCode) + " added: " + str(self.filteredCode))
-            if strConditionName == self.sellconditionname:
-                self.filteredCodeS.append(strCode)
-                print(str(strCode) + " added: " + str(self.filteredCodeS))
-        elif str(strType) == "D":  # 이탈 종목이라면
-            if strConditionName == self.conditionname:
-                self.filteredCode.remove(strCode)
-                print(str(strCode) + " removed: " + str(self.filteredCode))
-            if strConditionName == self.sellconditionname:
-                self.filteredCodeS.remove(strCode)
-                print(str(strCode) + " removed: " + str(self.filteredCodeS))
+        except Exception as e:
+            print(e)
 
-    def returnFilteredCodes(self):
-        fc = self.filteredCode
-        print("BUY_FILTERED: " + str(fc))
-        return fc
+    def _on_receive_real_condition(self, code, event, conditionName, conditionIndex):
+        print("[receiveRealCondition]")
+        print("Code: {}, Name: {}".format(code, self.get_master_code_name(code)))
+        print("Event_Type: ", "Added" if event == "I" else "Removed")
 
-    def returnSellFilteredCodes(self):
-        sc = self.filteredCodeS
-        print("SELL_FILTERED: " + str(sc))
-        return sc
+        msg = "{} {} {}\n".format("ADDED" if event == "I" else "REMOVED", code, self.get_master_code_name(code))
+        self.realfilteredCodes = msg
+        self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.realfilteredCodes)
+
+    # From here, handles messaging part
+    def sendMessage(self):
+        start_handler = CommandHandler('start', self.start)
+        self.dispatcher.add_handler(start_handler)
+        conditions = CommandHandler('conditions', self.conditionSender)
+        self.dispatcher.add_handler(conditions)
+        conditionStartHandler = CommandHandler('search', self.startCondition)
+        self.dispatcher.add_handler(conditionStartHandler)
+        conditionStopHandler = CommandHandler('stop', self.stopCondition)
+        self.dispatcher.add_handler(conditionStopHandler)
+        self.updater.start_polling()
+
+    def start(self, update, context):
+        self.chatID = update.effective_chat.id
+        context.bot.send_message(chat_id=update.effective_chat.id, text="BULLS_BOT ON!")
+
+    def conditionSender(self, update, context):
+        context.bot.send_message(chat_id=update.effective_chat.id, text=self.conditions)
+
+    def startCondition(self, update, context):
+        userIndex = context.args[0]
+        conditonIndex = self.condition_list['index'].index(userIndex)
+        self.sendCondition("0156", self.condition_list['name'][conditonIndex], int(userIndex), 1)
+
+    def stopCondition(self, update, context):
+        print("[Stop Condition]")
+        userIndex = context.args[0]
+        conditonIndex = self.condition_list['index'].index(userIndex)
+        print(userIndex + ": " + self.condition_list['name'][conditonIndex])
+        self.sendConditionStop("0156", self.condition_list['name'][conditonIndex], int(userIndex))

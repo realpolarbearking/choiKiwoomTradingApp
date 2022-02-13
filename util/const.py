@@ -286,6 +286,8 @@ def get_fid(search_value):
     keys = [key for key, value in FID_CODES.items() if value == search_value]
     return keys[0]
 
-
 # 발급 받은 LINE 토큰을 붙여 넣습니다.
 RSI_STRATEGY_MESSAGE_TOKEN = "7jlf4t4ysmd2W9QeG645w9e2KSuYCp8tmdyh3O27tPi"
+
+# TELEGRAM_TOKEN
+TELEGRAM_TOKEN = "5177225767:AAG6kSbQ86PRYaNEc9Fcr4ugq6vKJMOD_4M"

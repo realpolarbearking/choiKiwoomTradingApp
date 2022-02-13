@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="be3e9b8c-5cd4-4991-83d4-409fcd2863bc" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/api/Kiwoom.py" beforeDir="false" afterPath="$PROJECT_DIR$/api/Kiwoom.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/strategy/CHOIStrategy.py" beforeDir="false" afterPath="$PROJECT_DIR$/strategy/CHOIStrategy.py" afterDir="false" />

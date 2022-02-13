@@ -380,6 +380,9 @@ class Kiwoom(QAxWidget):
         elif result != 1:
             print("*RULE(S): FAILED TO IMPORT*")
 
+        self.conditionLoop = QEventLoop()
+        self.conditionLoop.exec_()
+
     def getConditionNameList(self):
         self.condition_list = {'index': [], 'name': []}
         temporary_condition_list = self.dynamicCall("GetConditionNameList()").split(";")
@@ -409,12 +412,18 @@ class Kiwoom(QAxWidget):
         if not isRequest:
             print("sendCondition(): Failed to search condition(s)")
 
+        self.conditionLoop = QEventLoop()
+        self.conditionLoop.exec_()
+
     def sendConditionStop(self, screenNo, conditionName, conditionIndex):
         print("[sendConditionStop]")
         self.dynamicCall("SendConditionStop(QString, QString, int)", screenNo, conditionName, conditionIndex)
 
         msg = "STOP_CONDITION: {} \n".format(conditionName)
         self.bot.sendMessage(chat_id=self.chatID, text=msg)
+
+        self.conditionLoop = QEventLoop()
+        self.conditionLoop.exec_()
 
     def _on_receive_condition_ver(self, receive):
 
@@ -429,6 +438,8 @@ class Kiwoom(QAxWidget):
             for key in self.condition.keys():
                 print("Condition: ", key, ": ", self.condition[key])
                 # print("key type: ", type(key))
+
+            self.conditionLoop.exit()
 
         except Exception as e:
             print(e)
@@ -455,6 +466,8 @@ class Kiwoom(QAxWidget):
             print(conditionName + "(" + str(len(codeList)) + ")")
             print(self.filteredCodes)
             self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.filteredCodes)
+
+            self.conditionLoop.exit()
 
         except Exception as e:
             print(e)

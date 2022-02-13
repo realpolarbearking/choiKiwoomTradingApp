@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="be3e9b8c-5cd4-4991-83d4-409fcd2863bc" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/api/Kiwoom.py" beforeDir="false" afterPath="$PROJECT_DIR$/api/Kiwoom.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/strategy/CHOIStrategy.py" beforeDir="false" afterPath="$PROJECT_DIR$/strategy/CHOIStrategy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/const.py" beforeDir="false" afterPath="$PROJECT_DIR$/util/const.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/notifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/util/notifier.py" afterDir="false" />
-    </list>
+    <list default="true" id="be3e9b8c-5cd4-4991-83d4-409fcd2863bc" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -76,6 +70,17 @@
       <updated>1641036154674</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

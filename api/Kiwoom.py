@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 import time
 import pandas as pd
+import sys
 from util.const import *
 import telegram
 from telegram.ext import Updater
@@ -455,20 +456,17 @@ class Kiwoom(QAxWidget):
         """
         print("[receiveTrCondition]")
         try:
-            if codes == "":
-                self.filteredCodes = "None Found"
-                return
-
             codeList = codes.split(';')
             codeList.remove('')
 
             msg = ""
             for code in codeList:
                 msg = "{} {}\n".format(code, self.get_master_code_name(code))
-            self.filteredCodes += msg
+                self.filteredCodes += msg
             print(conditionName + "(" + str(len(codeList)) + ")")
             print(self.filteredCodes)
-            self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.filteredCodes)
+            self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + " (" + str(len(codeList)) + ")" + "]" +
+                                                           "\n" + self.filteredCodes)
 
         except Exception as e:
             print(e)

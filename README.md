@@ -1,7 +1,7 @@
 # choiKiwoomTradingApp
 An automated trading application using Kiwoom Open API <br/>
 Currently under development! <br/>
-(Updated: Chat bot interaction)<br/>
+(Updated: Chat bot interaction [using Telegram])<br/>
 (Upcoming features: User Interface, Enhanced Strategy) <br/>
 
 <pre>

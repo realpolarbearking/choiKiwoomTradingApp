@@ -385,7 +385,7 @@ class Kiwoom(QAxWidget):
             print("*RULE(S): FAILED TO IMPORT*")
 
     def _on_receive_condition_ver(self):
-        condition_list = {'index': [], 'name': []}
+        #self.condition_list = {'index': [], 'name': []}
         temporary_condition_list = self.dynamicCall("GetConditionNameList()").split(";")
         temporary_condition_list.remove('')
 
@@ -393,8 +393,8 @@ class Kiwoom(QAxWidget):
         for data in temporary_condition_list:
             try:
                 a = data.split("^")
-                condition_list['index'].append(str(a[0]))
-                condition_list['name'].append(str(a[1]))
+                self.condition_list['index'].append(str(a[0]))
+                self.condition_list['name'].append(str(a[1]))
                 msg = "{}: {}\n".format(str(a[0]), str(a[1]))
             except IndexError:
                 print("*INDEX_ERROR*")
@@ -405,19 +405,19 @@ class Kiwoom(QAxWidget):
         #print("woohah" + str(returnUserChoice()))
         #getUserSelectionMsg(str(returnUserChoice()))
 
-        self.conditionname = str(condition_list['name'][3])
-        self.nindex = str(condition_list['index'][3])
+        self.conditionname = str(self.condition_list['name'][3])
+        self.nindex = str(self.condition_list['index'][3])
         print("BUY_RULE_INDEX: " + str(self.nindex))
         print("BUY_RULE_NAME: " + str(self.conditionname))
 
-        self.sellconditionname = str(condition_list['name'][4])
-        self.sellnindex = str(condition_list['index'][4])
+        self.sellconditionname = str(self.condition_list['name'][4])
+        self.sellnindex = str(self.condition_list['index'][4])
         print("SELL_RULE_INDEX: " + str(self.sellnindex))
         print("SELL_RULE_NAME: " + str(self.sellconditionname))
 
         self.combinedCN = [self.conditionname, self.sellconditionname]
         self.combinedCI = [self.nindex, self.sellnindex]
-        for i, o in enumerate(condition_list): #self.combinedCN):
+        for i, o in enumerate(self.condition_list): #self.combinedCN):
             a = self.dynamicCall("SendCondition(QString, QString, int, int)", "0156",
                                  str(self.combinedCN[i]), self.combinedCI[i], 1)
 

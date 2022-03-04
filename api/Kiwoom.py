@@ -19,6 +19,7 @@ class Kiwoom(QAxWidget):
         self._comm_connect()
         self.account_number = self.get_account_number()
 
+        self.liveDataLoop = QEventLoop()
         self.tr_event_loop = QEventLoop()
         self.conditionLoop = None #QEventLoop()
 
@@ -33,12 +34,15 @@ class Kiwoom(QAxWidget):
 
         self.GetConditionLoad()
 
-        self.condition = {}
         self.order = {}
         self.balance = {}
         self.universe_realtime_transaction_info = {}
+        self.buyConditionIndex = "000"
+        self.sellConditionIndex = "004"
+        self.filteredCode = []
+        self.filteredCodeS = []
+        self.condition = {}
         self.filteredCodes = ''
-        self.realfilteredCodes = ''
 
         self.updater.start_polling()
 
@@ -96,6 +100,7 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")
 
+        #self.tr_event_loop = QEventLoop()
         self.tr_event_loop.exec_()
 
         ohlcv = self.tr_data
@@ -104,6 +109,7 @@ class Kiwoom(QAxWidget):
             self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
             self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
             self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 2, "0001")
+            #self.tr_event_loop = QEventLoop()
             self.tr_event_loop.exec_()
 
             for key, val in self.tr_data.items():
@@ -245,6 +251,7 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "2")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opw00001_req", "opw00001", 0, "0002")
 
+        #self.tr_event_loop = QEventLoop()
         self.tr_event_loop.exec_()
         return self.tr_data
 
@@ -311,6 +318,7 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "매매구분", "0")  # 0:전체, 1:매도, 2:매수
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")
 
+        #self.tr_event_loop = QEventLoop()
         self.tr_event_loop.exec_()
         return self.tr_data
 
@@ -320,12 +328,43 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opw00018_req", "opw00018", 0, "0002")
 
+        #self.tr_event_loop = QEventLoop()
         self.tr_event_loop.exec_()
         return self.tr_data
+
+    def get_code_list_by_market(self, market_type):
+        print("[get_code_list_by_market]")
+        code_list = self.dynamicCall("GetCodeListByMarket(QString)", market_type)
+        code_list = code_list.split(';')[:-1]
+        print(str(code_list))
+        return code_list
+
+    def my_trading_universe(self):
+        # self.liveDataLoop = QEventLoop()
+        # self.liveDataLoop.exec_()
+        print("-------------------------------------------------------------------------------------------------------")
+        print("[my_trading_universe]")
+        kospi_code_list = self.get_code_list_by_market("0")
+        print("# of kospi_code_list: " + str(len(kospi_code_list)))
+        kosdaq_code_list = self.get_code_list_by_market("10")
+        print("# of kosdaq_code_list: " + str(len(kosdaq_code_list)))
+        marketList = kospi_code_list + kosdaq_code_list
+        # self.liveDataLoop.exit()
+        print("# of codes (total): " + str(len(marketList)))
+        for i, code in enumerate(marketList):
+            self.dynamicCall("SetRealRemove(QString, QString)", "9999", code)
+            if i == 0:
+                a = self.set_real_reg("9999", code, get_fid("체결시간"), "0")
+            else:
+                a = self.set_real_reg("9999", code, get_fid("체결시간"), "1")
+            print(code + "[" + str(i+1) + "/" + str(len(marketList)) + "]" + ": " + str(a))
+        print("-------------------------------------------------------------------------------------------------------")
+        #return marketList
 
     def set_real_reg(self, str_screen_no, str_code_list, str_fid_list, str_opt_type):
         self.dynamicCall("SetRealReg(QString, QString, QString, QString)", str_screen_no, str_code_list, str_fid_list, str_opt_type)
         time.sleep(0.5)
+        #return a
 
     def _on_receive_real_data(self, s_code, real_type, real_data):
         if real_type == "장시작시간":
@@ -456,10 +495,22 @@ class Kiwoom(QAxWidget):
         """
         print("[receiveTrCondition]")
         try:
+            #for Testing BuyCondition
+            if conditionIndex == int(self.buyConditionIndex):
+                self.filteredCode.append(codes)
+                self.filteredCode = self.filteredCode[0].split(';')
+                self.filteredCode.remove('')
+                print("FILTERED_BUY_CONDITION: " + str(self.filteredCode))
+            if conditionIndex == int(self.sellConditionIndex):
+                self.filteredCodeS.append(codes)
+                self.filteredCodeS = self.filteredCodeS[0].split(';')
+                self.filteredCodeS.remove('')
+                print("FILTERED_SELL_CONDITION: " + str(self.filteredCodeS))
+
             codeList = codes.split(';')
             codeList.remove('')
-
             msg = ""
+            self.filteredCodes = ''
             for code in codeList:
                 msg = "{} {}\n".format(code, self.get_master_code_name(code))
                 self.filteredCodes += msg
@@ -476,13 +527,45 @@ class Kiwoom(QAxWidget):
             self.conditionLoop.exit()
 
     def _on_receive_real_condition(self, code, event, conditionName, conditionIndex):
-        print("[receiveRealCondition]")
-        print("Code: {}, Name: {}".format(code, self.get_master_code_name(code)))
-        print("Event_Type: ", "Added" if event == "I" else "Removed")
+        #print("[receiveRealCondition]")
 
-        msg = "{} {} {}\n".format("ADDED" if event == "I" else "REMOVED", code, self.get_master_code_name(code))
-        self.realfilteredCodes = msg
-        self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.realfilteredCodes)
+        # for Testing BuyCondition
+        if str(event) == "I":
+            if conditionIndex == self.buyConditionIndex:
+                self.filteredCode.append(code)
+                print(str(code) + " added to BUY list: " + str(self.filteredCode))
+                self.returnFilteredCodes()
+            if conditionIndex == self.sellConditionIndex:
+                self.filteredCodeS.append(code)
+                print(str(code) + " added to SELL list: " + str(self.filteredCodeS))
+        elif str(event) == "D":
+            if conditionIndex == self.buyConditionIndex:
+                self.filteredCode.remove(code)
+                print(str(code) + " removed from BUY list: " + str(self.filteredCode))
+                self.returnFilteredCodes()
+            if conditionIndex == self.sellConditionIndex:
+                self.filteredCodeS.remove(code)
+                print(str(code) + " removed from SELL list: " + str(self.filteredCodeS))
+        else:
+            print("Code: {}, Name: {}".format(code, self.get_master_code_name(code)))
+            print("Event_Type: ", "Added" if event == "I" else "Removed")
+
+            msg = "{} {} {}\n".format("ADDED" if event == "I" else "REMOVED", code, self.get_master_code_name(code))
+            self.realfilteredCodes = msg
+            self.bot.sendMessage(chat_id=self.chatID, text="[" + conditionName + "]" + "\n" + self.realfilteredCodes)
+
+    # for Testing BuyCondition
+    def returnFilteredCodes(self):
+        fc = self.filteredCode
+        print("BUY_FILTERED: " + str(fc))
+        print("Buylen: " + str(len(fc)))
+        return fc
+
+    def returnSellFilteredCodes(self):
+        sc = self.filteredCodeS
+        print("SELL_FILTERED: " + str(sc))
+        print("SellLen: " + str(len(sc)))
+        return sc
 
     # From here, handles messaging part
     def sendMessage(self):
